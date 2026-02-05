@@ -11,6 +11,7 @@ An automated Python script to categorize and organize files in the Downloads fol
 - **v7.0**: Added logging and automatic empty folder cleanup.
 - **v8.0**: Added real-time monitoring with `--watch` mode.
 - **v9.0**: Added desktop notifications and maintenance (auto-deletion of old files).
+- **v10.0**: Added `--undo` functionality using the log file.
 
 ## Usage
 Run the script to organize your Downloads:
@@ -26,4 +27,9 @@ python organize_downloads.py --dry-run
 To keep the script running in the background and organize files as they arrive:
 ```bash
 python organize_downloads.py --watch
+```
+
+To reverse the last organization session:
+```bash
+python organize_downloads.py --undo
 ```

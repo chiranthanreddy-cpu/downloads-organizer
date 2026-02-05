@@ -193,12 +193,74 @@ def organize_file(item, categories, config):
         print(f"Error moving {item.name}: {e}")
         logging.error(f"Error moving {item.name}: {e}")
 
+def undo_last_session():
+    """Reverse the moves made in the last session recorded in the log."""
+    if not LOG_FILE.exists():
+        print("No log file found. Nothing to undo.")
+        return
+
+    moves = []
+    # We want to find the last block of moves
+    with open(LOG_FILE, "r") as f:
+        lines = f.readlines()
+        
+    # Find the start of the last session
+    session_start_idx = -1
+    for i in range(len(lines) - 1, -1, -1):
+        if "Started organization task" in lines[i]:
+            session_start_idx = i
+            break
+    
+    if session_start_idx == -1:
+        print("No recent organization session found to undo.")
+        return
+
+    # Extract moves from that session
+    for i in range(session_start_idx, len(lines)):
+        if "Moved:" in lines[i]:
+            # Format: 2026-02-05 14:55:00 - INFO - Moved: file.txt to C:\Users\...\Documents
+            parts = lines[i].split("Moved: ")
+            if len(parts) > 1:
+                move_info = parts[1].split(" to ")
+                filename = move_info[0].strip()
+                target_path = Path(move_info[1].strip()) / filename
+                moves.append((target_path, DOWNLOADS_PATH / filename))
+
+    if not moves:
+        print("No moves found in the last session.")
+        return
+
+    print(f"Undoing {len(moves)} moves...")
+    undone_count = 0
+    for src, dest in reversed(moves):
+        if src.exists():
+            try:
+                if not args.dry_run:
+                    shutil.move(str(src), str(dest))
+                    print(f"Restored: {dest.name}")
+                    undone_count += 1
+                else:
+                    print(f"[WOULD RESTORE]: {dest.name}")
+            except Exception as e:
+                print(f"Error restoring {src}: {e}")
+        else:
+            print(f"Could not find {src} to restore.")
+
+    if not args.dry_run:
+        logging.info(f"Undo completed. Restored {undone_count} files.")
+        print(f"\nUndo complete. Restored {undone_count} files.")
+
 def main():
     global args
     parser = argparse.ArgumentParser(description="Organize your Downloads folder.")
     parser.add_argument("--dry-run", action="store_true", help="Show what would be moved without actually moving files.")
     parser.add_argument("--watch", action="store_true", help="Watch the folder in real-time.")
+    parser.add_argument("--undo", action="store_true", help="Undo the last organization session.")
     args = parser.parse_args()
+
+    if args.undo:
+        undo_last_session()
+        return
 
     config = load_config()
     categories = config.get("categories", {})
