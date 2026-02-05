@@ -3,12 +3,38 @@ import shutil
 import argparse
 import json
 import hashlib
+import logging
 from datetime import datetime
 from pathlib import Path
 
-# Define the source directory (Downloads)
+# Define paths
 DOWNLOADS_PATH = Path.home() / "Downloads"
-CONFIG_FILE = Path(__file__).parent / "config.json"
+PROJECT_ROOT = Path(__file__).parent
+CONFIG_FILE = PROJECT_ROOT / "config.json"
+LOG_FILE = PROJECT_ROOT / "organizer.log"
+
+# Setup logging
+logging.basicConfig(
+    filename=LOG_FILE,
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
+
+def cleanup_empty_folders(path):
+    """Recursively remove empty folders."""
+    for root, dirs, files in os.walk(path, topdown=False):
+        for name in dirs:
+            dir_path = Path(root) / name
+            try:
+                if not any(dir_path.iterdir()):
+                    if not args.dry_run:
+                        dir_path.rmdir()
+                        print(f"Removed empty folder: {dir_path.relative_to(path)}")
+                    else:
+                        print(f"[WOULD REMOVE EMPTY]: {dir_path.relative_to(path)}")
+            except Exception as e:
+                print(f"Error removing {dir_path}: {e}")
 
 def get_file_hash(file_path):
     """Calculate SHA-256 hash of a file."""
@@ -66,6 +92,7 @@ def get_category(file_extension, categories):
     return "Others"
 
 def main():
+    global args
     parser = argparse.ArgumentParser(description="Organize your Downloads folder.")
     parser.add_argument("--dry-run", action="store_true", help="Show what would be moved without actually moving files.")
     args = parser.parse_args()
@@ -75,23 +102,26 @@ def main():
 
     if args.dry_run:
         print("--- DRY RUN MODE (No files will be moved) ---\n")
+        logging.info("Started dry run organization.")
+    else:
+        logging.info("Started organization task.")
 
     print(f"Organizing: {DOWNLOADS_PATH}")
     if not DOWNLOADS_PATH.exists():
         print("Downloads folder not found.")
+        logging.error("Downloads folder not found.")
         return
 
     moved_count = 0
     duplicates_found = 0
 
     for item in DOWNLOADS_PATH.iterdir():
-        if item.is_dir() or item.name in ["organize_downloads.py", "config.json"]:
+        if item.is_dir() or item.name in ["organize_downloads.py", "config.json", "organizer.log"]:
             continue
 
         category = get_category(item.suffix, categories)
         target_dir = DOWNLOADS_PATH / category
 
-        # Add date subfolders if enabled
         if config.get("settings", {}).get("organize_by_date", False):
             mtime = datetime.fromtimestamp(item.stat().st_mtime)
             year = str(mtime.year)
@@ -100,7 +130,6 @@ def main():
 
         destination = target_dir / item.name
 
-        # Check for duplicates
         if is_duplicate(item, target_dir):
             duplicates_found += 1
             if config.get("settings", {}).get("delete_duplicates", False):
@@ -109,18 +138,18 @@ def main():
                 else:
                     item.unlink()
                     print(f"Deleted duplicate: {item.name}")
+                    logging.info(f"Deleted duplicate: {item.name}")
                 continue
             else:
                 print(f"Skipping duplicate: {item.name}")
                 continue
 
-        # Handle name collisions (different content, same name)
         if destination.exists():
             print(f"Skipping {item.name}: File with same name exists in {category} but content differs.")
             continue
 
         if args.dry_run:
-            print(f"[WOULD MOVE]: {item.name} -> {category}/")
+            print(f"[WOULD MOVE]: {item.name} -> {target_dir.relative_to(DOWNLOADS_PATH)}/")
             moved_count += 1
         else:
             if not target_dir.exists():
@@ -128,13 +157,19 @@ def main():
 
             try:
                 shutil.move(str(item), str(destination))
-                print(f"Moved: {item.name} -> {category}/")
+                print(f"Moved: {item.name} -> {target_dir.relative_to(DOWNLOADS_PATH)}/")
+                logging.info(f"Moved: {item.name} to {target_dir}")
                 moved_count += 1
             except Exception as e:
                 print(f"Error moving {item.name}: {e}")
+                logging.error(f"Error moving {item.name}: {e}")
+
+    # Cleanup empty folders
+    cleanup_empty_folders(DOWNLOADS_PATH)
 
     status = "Would move" if args.dry_run else "Moved"
     print(f"\nTask complete. {status} {moved_count} files. Duplicates handled: {duplicates_found}")
+    logging.info(f"Task complete. {status} {moved_count} files. Duplicates: {duplicates_found}")
 
 if __name__ == "__main__":
     main()
