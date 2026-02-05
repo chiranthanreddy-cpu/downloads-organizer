@@ -27,13 +27,20 @@ To see what would happen without making any changes:
 python organize_downloads.py --dry-run
 ```
 
-### Weekly Auto-Scheduling
-To automatically organize your downloads every Sunday at 10:00 AM:
-1. Open PowerShell as Administrator.
-2. Run the setup script:
+### Weekly Auto-Scheduling (Background Mode)
+To automatically organize your downloads every Sunday at 10:00 AM without any terminal windows popping up:
+
+1. **Open PowerShell as Administrator** (Right-click Start > Terminal (Admin) or PowerShell (Admin)).
+2. Navigate to this folder:
    ```powershell
-   ./schedule_downloads.ps1
+   cd "C:\Users\chiru\downloads-organizer"
    ```
+3. Run the setup script:
+   ```powershell
+   Set-ExecutionPolicy Bypass -Scope Process -Force; ./schedule_downloads.ps1
+   ```
+
+*Note: The script uses `pythonw.exe` for the scheduled task, meaning it will work silently in the background.*
 
 ### Real-time Monitoring
 To keep the script running in the background and organize files as they arrive:
