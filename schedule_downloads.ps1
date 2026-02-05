@@ -1,13 +1,13 @@
 # Downloads Organizer - Task Scheduler Setup
 $ScriptName = "organize_downloads.py"
 $CurrentDir = "C:\Users\chiru\downloads-organizer"
-$PythonPath = (Get-Command python).Source
+$PythonPath = (Get-Command pythonw).Source
 $TaskName = "WeeklyDownloadsOrganizer"
 $ActionExecutable = $PythonPath
 $ActionArguments = "`"$CurrentDir\$ScriptName`""
 
 # Create the action
-$Action = New-ScheduledTaskAction -Execute $ActionExecutable -Argument $ActionArguments
+$Action = New-ScheduledTaskAction -Execute $ActionExecutable -Argument $ActionArguments -WorkingDirectory $CurrentDir
 
 # Create the trigger (Weekly on Sunday at 10:00 AM)
 $Trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Sunday -At 10:00am

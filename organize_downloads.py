@@ -150,6 +150,22 @@ class DownloadHandler(FileSystemEventHandler):
         if not event.is_directory:
             organize_file(Path(event.dest_path), self.categories, self.config)
 
+def get_unique_path(path):
+    """Returns a unique path by appending a counter if the file exists."""
+    if not path.exists():
+        return path
+    
+    stem = path.stem
+    suffix = path.suffix
+    parent = path.parent
+    counter = 1
+    
+    while True:
+        new_path = parent / f"{stem} ({counter}){suffix}"
+        if not new_path.exists():
+            return new_path
+        counter += 1
+
 def organize_file(item, categories, config):
     if item.is_dir() or item.name in ["organize_downloads.py", "config.json", "organizer.log"]:
         return
@@ -176,15 +192,17 @@ def organize_file(item, categories, config):
             return
 
     if destination.exists():
-        print(f"Skipping {item.name}: File with same name exists in {category} but content differs.")
-        return
+        # Renaming strategy for content collision
+        new_destination = get_unique_path(destination)
+        print(f"File exists. Renaming {item.name} -> {new_destination.name}")
+        destination = new_destination
 
     if not target_dir.exists():
         target_dir.mkdir(parents=True, exist_ok=True)
 
     try:
         shutil.move(str(item), str(destination))
-        msg = f"Moved: {item.name} -> {target_dir.relative_to(DOWNLOADS_PATH)}/"
+        msg = f"Moved: {item.name} -> {destination.relative_to(DOWNLOADS_PATH)}"
         print(msg)
         logging.info(msg)
         if config.get("settings", {}).get("enable_notifications", True):
