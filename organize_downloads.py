@@ -293,6 +293,7 @@ def main():
         return
 
     moved_count = 0
+    duplicates_found = 0
     # Initial scan
     for item in DOWNLOADS_PATH.iterdir():
         if item.is_file():
@@ -302,8 +303,12 @@ def main():
             else:
                 # Dry run logic simplified for the scan
                 category = get_category(item.suffix, categories)
-                print(f"[WOULD MOVE]: {item.name} -> {category}/")
-                moved_count += 1
+                if is_duplicate(item, DOWNLOADS_PATH / category):
+                    duplicates_found += 1
+                    print(f"[WOULD SKIP DUPLICATE]: {item.name}")
+                else:
+                    print(f"[WOULD MOVE]: {item.name} -> {category}/")
+                    moved_count += 1
 
     # Auto-delete old files
     delete_old_files(config.get("settings", {}).get("auto_delete_days", 0))
