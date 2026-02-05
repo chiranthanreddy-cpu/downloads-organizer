@@ -9,6 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
+from plyer import notification
 
 # Define paths
 DOWNLOADS_PATH = Path.home() / "Downloads"
@@ -38,6 +39,46 @@ def cleanup_empty_folders(path):
                         print(f"[WOULD REMOVE EMPTY]: {dir_path.relative_to(path)}")
             except Exception as e:
                 print(f"Error removing {dir_path}: {e}")
+
+def send_notification(title, message):
+    """Send a desktop notification."""
+    try:
+        notification.notify(
+            title=title,
+            message=message,
+            app_name="Downloads Organizer",
+            timeout=5
+        )
+    except Exception as e:
+        print(f"Error sending notification: {e}")
+
+def delete_old_files(days):
+    """Delete files older than the specified number of days."""
+    if days <= 0:
+        return
+    
+    now = time.time()
+    cutoff = now - (days * 86400)
+    deleted_count = 0
+
+    print(f"Checking for files older than {days} days...")
+    for root, dirs, files in os.walk(DOWNLOADS_PATH):
+        for name in files:
+            file_path = Path(root) / name
+            if file_path.stat().st_mtime < cutoff:
+                try:
+                    if not args.dry_run:
+                        file_path.unlink()
+                        logging.info(f"Auto-deleted old file: {file_path}")
+                        deleted_count += 1
+                    else:
+                        print(f"[WOULD AUTO-DELETE]: {file_path}")
+                except Exception as e:
+                    print(f"Error deleting old file {file_path}: {e}")
+    
+    if deleted_count > 0:
+        print(f"Auto-deleted {deleted_count} old files.")
+        send_notification("Maintenance Complete", f"Auto-deleted {deleted_count} old files.")
 
 def get_file_hash(file_path):
     """Calculate SHA-256 hash of a file."""
@@ -143,8 +184,11 @@ def organize_file(item, categories, config):
 
     try:
         shutil.move(str(item), str(destination))
-        print(f"Moved: {item.name} -> {target_dir.relative_to(DOWNLOADS_PATH)}/")
-        logging.info(f"Moved: {item.name} to {target_dir}")
+        msg = f"Moved: {item.name} -> {target_dir.relative_to(DOWNLOADS_PATH)}/"
+        print(msg)
+        logging.info(msg)
+        if config.get("settings", {}).get("enable_notifications", True):
+            send_notification("File Organized", f"{item.name} moved to {category}")
     except Exception as e:
         print(f"Error moving {item.name}: {e}")
         logging.error(f"Error moving {item.name}: {e}")
@@ -198,6 +242,9 @@ def main():
                 category = get_category(item.suffix, categories)
                 print(f"[WOULD MOVE]: {item.name} -> {category}/")
                 moved_count += 1
+
+    # Auto-delete old files
+    delete_old_files(config.get("settings", {}).get("auto_delete_days", 0))
 
     # Cleanup empty folders
     cleanup_empty_folders(DOWNLOADS_PATH)

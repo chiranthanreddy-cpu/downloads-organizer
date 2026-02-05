@@ -10,6 +10,7 @@ An automated Python script to categorize and organize files in the Downloads fol
 - **v6.0**: Added optional date-based subfolder organization (Year/Month).
 - **v7.0**: Added logging and automatic empty folder cleanup.
 - **v8.0**: Added real-time monitoring with `--watch` mode.
+- **v9.0**: Added desktop notifications and maintenance (auto-deletion of old files).
 
 ## Usage
 Run the script to organize your Downloads:

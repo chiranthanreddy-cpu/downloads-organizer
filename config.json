@@ -9,6 +9,8 @@
     },
     "settings": {
         "organize_by_date": false,
-        "delete_duplicates": false
+        "delete_duplicates": false,
+        "auto_delete_days": 0,
+        "enable_notifications": true
     }
 }
