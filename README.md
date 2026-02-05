@@ -12,8 +12,11 @@ An automated Python script to categorize and organize files in the Downloads fol
 - **v8.0**: Added real-time monitoring with `--watch` mode.
 - **v9.0**: Added desktop notifications and maintenance (auto-deletion of old files).
 - **v10.0**: Added `--undo` functionality using the log file.
+- **v11.0**: Added `start_organizer.bat` and desktop shortcut for easy background execution.
 
 ## Usage
+### One-click Start
+Double-click the **Start Downloads Organizer** shortcut on your desktop to start the background monitor in a minimized window.
 Run the script to organize your Downloads:
 ```bash
 python organize_downloads.py
