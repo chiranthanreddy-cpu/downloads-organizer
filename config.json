@@ -1,0 +1,14 @@
+{
+    "categories": {
+        "Images": [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".svg", ".webp"],
+        "Documents": [".pdf", ".doc", ".docx", ".txt", ".csv", ".xlsx", ".pptx"],
+        "Installers": [".exe", ".msi", ".dmg", ".pkg"],
+        "Archives": [".zip", ".rar", ".7z", ".tar", ".gz"],
+        "Videos": [".mp4", ".mov", ".avi", ".mkv", ".wmv"],
+        "Music": [".mp3", ".wav", ".aac", ".flac"]
+    },
+    "settings": {
+        "organize_by_date": false,
+        "delete_duplicates": false
+    }
+}
