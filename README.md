@@ -15,23 +15,33 @@ An automated Python script to categorize and organize files in the Downloads fol
 - **v11.0**: Added `start_organizer.bat` and desktop shortcut for easy background execution.
 
 ## Usage
-### One-click Start
-Double-click the **Start Downloads Organizer** shortcut on your desktop to start the background monitor in a minimized window.
+### One-time organization
 Run the script to organize your Downloads:
 ```bash
 python organize_downloads.py
 ```
 
+### Dry Run
 To see what would happen without making any changes:
 ```bash
 python organize_downloads.py --dry-run
 ```
 
+### Weekly Auto-Scheduling
+To automatically organize your downloads every Sunday at 10:00 AM:
+1. Open PowerShell as Administrator.
+2. Run the setup script:
+   ```powershell
+   ./schedule_downloads.ps1
+   ```
+
+### Real-time Monitoring
 To keep the script running in the background and organize files as they arrive:
 ```bash
 python organize_downloads.py --watch
 ```
 
+### Undo Last Session
 To reverse the last organization session:
 ```bash
 python organize_downloads.py --undo
