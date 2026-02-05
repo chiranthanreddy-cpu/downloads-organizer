@@ -4,8 +4,11 @@ import argparse
 import json
 import hashlib
 import logging
+import time
 from datetime import datetime
 from pathlib import Path
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
 
 # Define paths
 DOWNLOADS_PATH = Path.home() / "Downloads"
@@ -91,14 +94,85 @@ def get_category(file_extension, categories):
             return category
     return "Others"
 
+class DownloadHandler(FileSystemEventHandler):
+    def __init__(self, categories, config):
+        self.categories = categories
+        self.config = config
+
+    def on_created(self, event):
+        if not event.is_directory:
+            # Wait a moment for the download to finish/file to be stable
+            time.sleep(1)
+            organize_file(Path(event.src_path), self.categories, self.config)
+
+    def on_moved(self, event):
+        if not event.is_directory:
+            organize_file(Path(event.dest_path), self.categories, self.config)
+
+def organize_file(item, categories, config):
+    if item.is_dir() or item.name in ["organize_downloads.py", "config.json", "organizer.log"]:
+        return
+
+    category = get_category(item.suffix, categories)
+    target_dir = DOWNLOADS_PATH / category
+
+    if config.get("settings", {}).get("organize_by_date", False):
+        mtime = datetime.fromtimestamp(item.stat().st_mtime)
+        year = str(mtime.year)
+        month = mtime.strftime("%B")
+        target_dir = target_dir / year / month
+
+    destination = target_dir / item.name
+
+    if is_duplicate(item, target_dir):
+        if config.get("settings", {}).get("delete_duplicates", False):
+            item.unlink()
+            print(f"Deleted duplicate: {item.name}")
+            logging.info(f"Deleted duplicate: {item.name}")
+            return
+        else:
+            print(f"Skipping duplicate: {item.name}")
+            return
+
+    if destination.exists():
+        print(f"Skipping {item.name}: File with same name exists in {category} but content differs.")
+        return
+
+    if not target_dir.exists():
+        target_dir.mkdir(parents=True, exist_ok=True)
+
+    try:
+        shutil.move(str(item), str(destination))
+        print(f"Moved: {item.name} -> {target_dir.relative_to(DOWNLOADS_PATH)}/")
+        logging.info(f"Moved: {item.name} to {target_dir}")
+    except Exception as e:
+        print(f"Error moving {item.name}: {e}")
+        logging.error(f"Error moving {item.name}: {e}")
+
 def main():
     global args
     parser = argparse.ArgumentParser(description="Organize your Downloads folder.")
     parser.add_argument("--dry-run", action="store_true", help="Show what would be moved without actually moving files.")
+    parser.add_argument("--watch", action="store_true", help="Watch the folder in real-time.")
     args = parser.parse_args()
 
     config = load_config()
     categories = config.get("categories", {})
+
+    if args.watch:
+        print(f"Monitoring: {DOWNLOADS_PATH}")
+        logging.info("Started real-time monitoring.")
+        event_handler = DownloadHandler(categories, config)
+        observer = Observer()
+        observer.schedule(event_handler, str(DOWNLOADS_PATH), recursive=False)
+        observer.start()
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            observer.stop()
+        observer.join()
+        return
 
     if args.dry_run:
         print("--- DRY RUN MODE (No files will be moved) ---\n")
@@ -113,56 +187,17 @@ def main():
         return
 
     moved_count = 0
-    duplicates_found = 0
-
+    # Initial scan
     for item in DOWNLOADS_PATH.iterdir():
-        if item.is_dir() or item.name in ["organize_downloads.py", "config.json", "organizer.log"]:
-            continue
-
-        category = get_category(item.suffix, categories)
-        target_dir = DOWNLOADS_PATH / category
-
-        if config.get("settings", {}).get("organize_by_date", False):
-            mtime = datetime.fromtimestamp(item.stat().st_mtime)
-            year = str(mtime.year)
-            month = mtime.strftime("%B")
-            target_dir = target_dir / year / month
-
-        destination = target_dir / item.name
-
-        if is_duplicate(item, target_dir):
-            duplicates_found += 1
-            if config.get("settings", {}).get("delete_duplicates", False):
-                if args.dry_run:
-                    print(f"[WOULD DELETE DUPLICATE]: {item.name}")
-                else:
-                    item.unlink()
-                    print(f"Deleted duplicate: {item.name}")
-                    logging.info(f"Deleted duplicate: {item.name}")
-                continue
-            else:
-                print(f"Skipping duplicate: {item.name}")
-                continue
-
-        if destination.exists():
-            print(f"Skipping {item.name}: File with same name exists in {category} but content differs.")
-            continue
-
-        if args.dry_run:
-            print(f"[WOULD MOVE]: {item.name} -> {target_dir.relative_to(DOWNLOADS_PATH)}/")
-            moved_count += 1
-        else:
-            if not target_dir.exists():
-                target_dir.mkdir(parents=True, exist_ok=True)
-
-            try:
-                shutil.move(str(item), str(destination))
-                print(f"Moved: {item.name} -> {target_dir.relative_to(DOWNLOADS_PATH)}/")
-                logging.info(f"Moved: {item.name} to {target_dir}")
+        if item.is_file():
+            if not args.dry_run:
+                organize_file(item, categories, config)
                 moved_count += 1
-            except Exception as e:
-                print(f"Error moving {item.name}: {e}")
-                logging.error(f"Error moving {item.name}: {e}")
+            else:
+                # Dry run logic simplified for the scan
+                category = get_category(item.suffix, categories)
+                print(f"[WOULD MOVE]: {item.name} -> {category}/")
+                moved_count += 1
 
     # Cleanup empty folders
     cleanup_empty_folders(DOWNLOADS_PATH)
