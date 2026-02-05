@@ -2,11 +2,39 @@ import os
 import shutil
 import argparse
 import json
+import hashlib
 from pathlib import Path
 
 # Define the source directory (Downloads)
 DOWNLOADS_PATH = Path.home() / "Downloads"
 CONFIG_FILE = Path(__file__).parent / "config.json"
+
+def get_file_hash(file_path):
+    """Calculate SHA-256 hash of a file."""
+    hash_sha256 = hashlib.sha256()
+    try:
+        with open(file_path, "rb") as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                hash_sha256.update(chunk)
+        return hash_sha256.hexdigest()
+    except Exception as e:
+        print(f"Error hashing {file_path}: {e}")
+        return None
+
+def is_duplicate(source_path, target_dir):
+    """Check if file already exists in target directory with same content."""
+    if not target_dir.exists():
+        return False
+    
+    source_hash = get_file_hash(source_path)
+    if not source_hash:
+        return False
+
+    for existing_file in target_dir.iterdir():
+        if existing_file.is_file() and existing_file.name == source_path.name:
+            existing_hash = get_file_hash(existing_file)
+            return source_hash == existing_hash
+    return False
 
 def load_config():
     default_config = {
@@ -53,6 +81,7 @@ def main():
         return
 
     moved_count = 0
+    duplicates_found = 0
 
     for item in DOWNLOADS_PATH.iterdir():
         if item.is_dir() or item.name in ["organize_downloads.py", "config.json"]:
@@ -60,11 +89,25 @@ def main():
 
         category = get_category(item.suffix, categories)
         target_dir = DOWNLOADS_PATH / category
-
-        # Handle name collisions
         destination = target_dir / item.name
+
+        # Check for duplicates
+        if is_duplicate(item, target_dir):
+            duplicates_found += 1
+            if config.get("settings", {}).get("delete_duplicates", False):
+                if args.dry_run:
+                    print(f"[WOULD DELETE DUPLICATE]: {item.name}")
+                else:
+                    item.unlink()
+                    print(f"Deleted duplicate: {item.name}")
+                continue
+            else:
+                print(f"Skipping duplicate: {item.name}")
+                continue
+
+        # Handle name collisions (different content, same name)
         if destination.exists():
-            print(f"Skipping {item.name}: File already exists in {category}")
+            print(f"Skipping {item.name}: File with same name exists in {category} but content differs.")
             continue
 
         if args.dry_run:
@@ -82,7 +125,7 @@ def main():
                 print(f"Error moving {item.name}: {e}")
 
     status = "Would move" if args.dry_run else "Moved"
-    print(f"\nTask complete. {status} {moved_count} files.")
+    print(f"\nTask complete. {status} {moved_count} files. Duplicates handled: {duplicates_found}")
 
 if __name__ == "__main__":
     main()

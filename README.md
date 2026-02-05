@@ -6,6 +6,7 @@ An automated Python script to categorize and organize files in the Downloads fol
 - **v2.0**: Core organization logic, folder creation, and collision handling.
 - **v3.0**: Added dry-run mode and argument parsing.
 - **v4.0**: Externalized configuration to `config.json`.
+- **v5.0**: Added SHA-256 hash-based duplicate detection.
 
 ## Usage
 Run the script to organize your Downloads:
