@@ -3,6 +3,7 @@ import shutil
 import argparse
 import json
 import hashlib
+from datetime import datetime
 from pathlib import Path
 
 # Define the source directory (Downloads)
@@ -89,6 +90,14 @@ def main():
 
         category = get_category(item.suffix, categories)
         target_dir = DOWNLOADS_PATH / category
+
+        # Add date subfolders if enabled
+        if config.get("settings", {}).get("organize_by_date", False):
+            mtime = datetime.fromtimestamp(item.stat().st_mtime)
+            year = str(mtime.year)
+            month = mtime.strftime("%B")
+            target_dir = target_dir / year / month
+
         destination = target_dir / item.name
 
         # Check for duplicates
@@ -115,7 +124,7 @@ def main():
             moved_count += 1
         else:
             if not target_dir.exists():
-                target_dir.mkdir()
+                target_dir.mkdir(parents=True, exist_ok=True)
 
             try:
                 shutil.move(str(item), str(destination))
